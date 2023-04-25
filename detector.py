@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import Optional
+
 import torch
 from torchvision import transforms
 
@@ -13,12 +16,27 @@ class Detector(torch.nn.Module):
         ])
         self._model = resnet50(num_classes=1)
 
-    def load_pretrained(self, weights_path):
-        state_dict = torch.load(weights_path, map_location="cpu")
-        self._model.load_state_dict(state_dict["model"])
+    def load_pretrained(self, weights_path: Path) -> None:
+        state_dict = torch.load(weights_path, map_location='cpu')
+        self._model.load_state_dict(state_dict['model'])
 
-    def forward(self, img):
-        img = self._transform(img)
-        sig = self._model(img).sigmoid()
+    def configure(self, device: Optional[str], training: Optional[bool] = None, **kwargs) -> None:
+        if device is not None:
+            self.to(device)
+            self._model.to(device)
+
+        if training is None:
+            return
+
+        if training:
+            self.train()
+            self._model.train()
+        else:
+            self.eval()
+            self._model.eval()
+
+    def forward(self, img_batch: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+        img_batch = self._transform(img_batch)
+        sig = self._model(img_batch).sigmoid()
         label = torch.round(sig).to(torch.int)
         return label, sig
